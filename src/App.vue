@@ -77,7 +77,7 @@ export default {
     <HeaderComponent :isLoggedIn="isLoggedIn" :firstname="firstname" @logout="handleLogout" @darkMode="toggleDarkMode"/>
   </header>
   <main class="main-content">
-      <RouterView @login-success="handleLogin"/>
+      <RouterView @login-success="handleLogin" :isLoggedIn="isLoggedIn"/>
     </main>
 
     <footer class="footer">

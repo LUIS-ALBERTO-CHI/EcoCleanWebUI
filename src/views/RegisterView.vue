@@ -63,7 +63,7 @@ export default {
                     password: this.password
                 });
                 this.$toast.add({ severity: 'success', summary: 'Success', detail: 'User created successfully', life: 3000 });
-                this.$router.push('/login');
+                this.$router.push('/');
             } catch (error) {
                 this.$toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to create user', life: 3000 });
                 console.error(error);

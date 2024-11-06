@@ -1,7 +1,7 @@
 <template>
     <div class="card">
         <Menubar :model="items" class="w-full">
-            <template #item="{ item, props, hasSubmenu, root }">
+            <template #item="{ item, props, hasSubmenu, root }" >
                 <a v-ripple class="flex items-center" v-bind="props.action">
                     <span :class="item.icon" />
                     <span>{{ item.label }}</span>
@@ -22,9 +22,6 @@
                         <Avatar :label="firstInitial" size="large" shape="circle" />
                         <span>{{ firstname }}</span>
                         <Button label="Salir" text plain icon="pi pi-sign-out" @click="handleLogout" iconPos="right" />
-                    </div>
-                    <div v-else class="flex align-items-center justify-content-center gap-2">
-                        <Button as="router-link" label="Log in" text plain to="/login" />
                     </div>
                 </div>
             </template>

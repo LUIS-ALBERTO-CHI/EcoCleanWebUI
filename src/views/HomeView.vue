@@ -1,5 +1,5 @@
 <template>
-  <div class="container">
+  <div class="container" v-if="isLoggedIn">
     <Card v-if="isMobileDevice()" style="width: 25rem; overflow: hidden">
       <template #header>
         <img alt="user header" src="@/assets/mapa.jpg" />
@@ -17,6 +17,17 @@
       <MapComponent />
     </div>
   </div>
+  <div class="mt-4" v-else>
+    <Card>
+      <template #title>Acceso denegado</template>
+      <template #subtitle>Por favor inicia sesión</template>
+      <template #footer>
+        <div class="flex gap-4 mt-1">
+          <Button as="router-link" label="Iniciar sesión" class="w-full" to="/" />
+        </div>
+      </template>
+    </Card>
+  </div>
 </template>
 
 <script>
@@ -31,10 +42,13 @@ export default {
     Card,
     Button
   },
+  props: {
+    isLoggedIn: Boolean,
+  },
   methods: {
     isMobileDevice() {
-    return /Mobi|Android/i.test(navigator.userAgent);
-  }
+      return /Mobi|Android/i.test(navigator.userAgent);
+    }
   }
 }
 </script>
