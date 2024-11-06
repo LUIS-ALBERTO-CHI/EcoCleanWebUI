@@ -39,6 +39,7 @@ export default {
       localStorage.removeItem('loggedInUser');
       this.isLoggedIn = false;
       this.username = '';
+      this.$router.push('/');
     },
     checkAuth() {
       const token = localStorage.getItem('accessToken');
