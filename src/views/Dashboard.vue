@@ -42,7 +42,7 @@ window.initMap = (latitude, longitude) => {
 
 const fetchAlerts = async () => {
     try {
-        const response = await fetch('http://localhost:5000/api/alerts/getAlerts');
+        const response = await fetch('http://localhost:5000/api/alerts');
         const data = await response.json();
         alerts.value = data;
     } catch (error) {
@@ -52,7 +52,7 @@ const fetchAlerts = async () => {
 
 const handleSubmit = () => {
     if (selectedAlert.value && formData.value.latitude && formData.value.longitude) {
-        const alert = alerts.value.find((a) => a.ID === selectedAlert.value);
+        const alert = alerts.value.find((a) => a._id === selectedAlert.value);
 
         if (addedSensors.value.has(alert.sensorId)) {
             alert("Este sensor ya tiene un pin en el mapa.");
@@ -150,7 +150,7 @@ onMounted(() => {
         <Dialog v-model:visible="displayModal" header="Agregar contenedor" :modal="true" :closable="true" class="p-fluid w-1/2">
             <div class="flex flex-col gap-4 w-full">
                 <label for="alert">Selecciona una alerta:</label>
-                <Dropdown v-model="selectedAlert" :options="alerts" optionLabel="message" optionValue="ID" placeholder="Seleccionar alerta" />
+                <Dropdown v-model="selectedAlert" :options="alerts" optionLabel="message" optionValue="_id" placeholder="Seleccionar alerta" />
                 
                 <Button label="Guardar" @click="handleSubmit" />
             </div>

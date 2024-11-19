@@ -9,9 +9,9 @@ const model = ref([
         items: [{ label: 'Mapa', icon: 'pi pi-fw pi-map', to: '/dashboard' }]
     },
     {
-        label: 'Acciones',
+        label: 'Páginas',
         items: [
-            { label: 'Agregar bote', icon: 'pi pi-fw pi-plus', to: '/uikit/formlayout' },
+            { label: 'Usuarios', icon: 'pi pi-fw pi-users', to: '/users' },
         ]
     }
 ]);

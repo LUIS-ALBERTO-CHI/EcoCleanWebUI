@@ -32,10 +32,25 @@ const router = createRouter({
                     name: 'dashboard',
                     component: () => import('@/views/Dashboard.vue'),
                     meta: { requiresAuth: true }
+                },
+                {
+                    path: '/users',
+                    name: 'users',
+                    component: () => import('@/views/pages/Crud.vue'),
+                    meta: { requiresAuth: true }
                 }
             ]
         }
     ]
+});
+
+router.beforeEach((to, from, next) => {
+    const isAuthenticated = !!localStorage.getItem('accessToken');
+    if (to.matched.some(record => record.meta.requiresAuth) && !isAuthenticated) {
+        next({ name: 'login' });
+    } else {
+        next();
+    }
 });
 
 export default router;
