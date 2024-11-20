@@ -11,8 +11,6 @@ const alerts = ref([]);
 let pollingInterval;
 const addedSensors = ref(new Set());
 const formData = ref({
-    name: '',
-    description: '',
     latitude: null,
     longitude: null,
     sensorId: null

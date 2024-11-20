@@ -30,9 +30,24 @@ const getIconPath = (status) => {
     }
 };
 
+const showNotification = (alert) => {
+    if (Notification.permission === 'granted') {
+        new Notification('El estado de la alerta ha cambiado', {
+            body: `Alerta: ${alert.message} ahora es ${alert.status}`,
+            icon: getIconPath(alert.status)
+        });
+    }
+};
+
 const fetchAlerts = async () => {
     const response = await fetch('http://localhost:5000/api/alerts');
     const data = await response.json();
+    data.forEach(alert => {
+        const existingAlert = alerts.value.find(a => a._id === alert._id);
+        if (existingAlert && existingAlert.status !== alert.status) {
+            showNotification(alert);
+        }
+    });
     alerts.value = data.map(alert => ({
         ...alert,
         iconPath: getIconPath(alert.status)
@@ -58,6 +73,12 @@ onMounted(async () => {
 
     fullName.value = user ? JSON.parse(user).firstname + ' ' + JSON.parse(user).lastname : '';
     initials.value = fullName.value.split(' ').map((n) => n[0]).join('');
+
+    if (!('Notification' in window)) {
+        alert('Este navegador no soporta notificaciones de escritorio.');
+    } else if (Notification.permission !== 'granted') {
+        await Notification.requestPermission();
+    }
 
     startPolling();
 });
