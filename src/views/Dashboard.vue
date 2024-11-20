@@ -20,7 +20,7 @@ const formData = ref({
 window.initMap = (latitude, longitude) => {
     const map = new Microsoft.Maps.Map(document.getElementById('map'), {
         center: new Microsoft.Maps.Location(latitude, longitude),
-        zoom: 13
+        zoom: 17
     });
 
     const center = map.getCenter();
@@ -121,17 +121,7 @@ const searchPlace = () => {
 onMounted(() => {
     fetchAlerts();
 
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition((position) => {
-            const latitude = position.coords.latitude;
-            const longitude = position.coords.longitude;
-            window.initMap(latitude, longitude);
-        }, () => {
-            window.initMap(20.938424, -89.6190693);
-        });
-    } else {
-        window.initMap(20.938424, -89.6190693);
-    }
+    window.initMap(20.938904976395065, -89.61574872523957);
 });
 </script>
 
