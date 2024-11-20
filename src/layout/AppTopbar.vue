@@ -13,6 +13,9 @@ const fullName = ref('');
 const initials = ref('');
 const alertsCount = ref(0);
 let pollingInterval;
+const notification = ref(null);
+
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
 const toggle = (event) => {
     op.value.toggle(event);
@@ -31,16 +34,26 @@ const getIconPath = (status) => {
 };
 
 const showNotification = (alert) => {
-    if (Notification.permission === 'granted') {
-        new Notification('El estado de la alerta ha cambiado', {
-            body: `Alerta: ${alert.message} ahora es ${alert.status}`,
+    if (isMobile) {
+        notification.value = {
+            message: `Alerta: ${alert.message} ahora es ${alert.status}`,
             icon: getIconPath(alert.status)
-        });
+        };
+        setTimeout(() => {
+            notification.value = null;
+        }, 5000);
+    } else {
+        if (Notification.permission === 'granted') {
+            new Notification('El estado de la alerta ha cambiado', {
+                body: `Alerta: ${alert.message} ahora es ${alert.status}`,
+                icon: getIconPath(alert.status)
+            });
+        }
     }
 };
 
 const fetchAlerts = async () => {
-    const response = await fetch('http://localhost:5000/api/alerts');
+    const response = await fetch('https://they-cables-vc-organizations.trycloudflare.com/api/alerts');
     const data = await response.json();
     data.forEach(alert => {
         const existingAlert = alerts.value.find(a => a._id === alert._id);
@@ -63,6 +76,17 @@ const stopPolling = () => {
     clearInterval(pollingInterval);
 };
 
+const requestNotificationPermission = async () => {
+    try {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            alert('Permiso de notificación denegado. Por favor, habilítalo en la configuración de tu navegador.');
+        }
+    } catch (error) {
+        console.error('Error al solicitar permiso de notificación:', error);
+    }
+};
+
 onMounted(async () => {
     await fetchAlerts();
 
@@ -75,9 +99,9 @@ onMounted(async () => {
     initials.value = fullName.value.split(' ').map((n) => n[0]).join('');
 
     if (!('Notification' in window)) {
-        alert('Este navegador no soporta notificaciones de escritorio.');
-    } else if (Notification.permission !== 'granted') {
-        await Notification.requestPermission();
+        alert('Este navegador no soporta notificaciones de escritorio. Por favor, utiliza un navegador compatible como Chrome, Firefox, Edge o Safari.');
+    } else {
+        await requestNotificationPermission();
     }
 
     startPolling();
@@ -146,5 +170,50 @@ onUnmounted(() => {
                 </div>
             </div>
         </div>
+
+        <div v-if="notification" class="notification-card">
+            <img :src="notification.icon" alt="Icon" class="notification-icon" />
+            <span class="notification-message">{{ notification.message }}</span>
+        </div>
     </div>
 </template>
+
+<style scoped>
+.notification-card {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #fff;
+    border: 1px solid #ccc;
+    padding: 10px 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 1000;
+    animation: slide-down 0.5s ease-out;
+}
+
+.notification-icon {
+    width: 24px;
+    height: 24px;
+}
+
+.notification-message {
+    font-size: 14px;
+    color: #333;
+}
+
+@keyframes slide-down {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+</style>

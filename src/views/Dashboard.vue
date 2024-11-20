@@ -57,7 +57,7 @@ window.initMap = (latitude, longitude) => {
 
 const fetchAlerts = async () => {
     try {
-        const response = await fetch('http://localhost:5000/api/alerts');
+        const response = await fetch('https://they-cables-vc-organizations.trycloudflare.com/api/alerts');
         const data = await response.json();
         alerts.value = data;
     } catch (error) {
