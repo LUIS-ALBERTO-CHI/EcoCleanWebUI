@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, onUnmounted } from 'vue';
 import medio from '@/assets/medio.png';
 import critico from '@/assets/critico.png';
 import estable from '@/assets/estable.png';
@@ -8,6 +8,7 @@ const searchQuery = ref('');
 const displayModal = ref(false);
 const selectedAlert = ref(null);
 const alerts = ref([]);
+let pollingInterval;
 const addedSensors = ref(new Set());
 const formData = ref({
     name: '',
@@ -17,7 +18,23 @@ const formData = ref({
     sensorId: null
 });
 
+const startPolling = () => {
+    pollingInterval = setInterval(fetchAlerts, 3000);
+};
+
+const stopPolling = () => {
+    clearInterval(pollingInterval);
+};
+
+
 window.initMap = (latitude, longitude) => {
+
+    if (latitude == null || longitude == null) {
+        console.warn('Las coordenadas iniciales son inválidas. El mapa se centrará en una ubicación predeterminada.');
+        latitude = 20.938904976395065;
+        longitude = -89.61574872523957;
+    }
+
     const map = new Microsoft.Maps.Map(document.getElementById('map'), {
         center: new Microsoft.Maps.Location(latitude, longitude),
         zoom: 17
@@ -119,9 +136,18 @@ const searchPlace = () => {
 };
 
 onMounted(() => {
-    fetchAlerts();
+    if (!window.Microsoft) {
+        console.error('Microsoft Maps no está definido. Revisa tu clave API y conexión.');
+        return;
+    }
 
     window.initMap(20.938904976395065, -89.61574872523957);
+    fetchAlerts();
+    startPolling();
+});
+
+onUnmounted(() => {
+    stopPolling();
 });
 </script>
 
