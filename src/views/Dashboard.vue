@@ -129,7 +129,7 @@ const deleteContainer = async (containerId) => {
         }
 
         console.log('Contenedor eliminado exitosamente');
-        fetchContainers(); // Refresh the container list and markers
+        fetchContainers();
     } catch (error) {
         console.error('Error al eliminar el contenedor:', error);
     }
@@ -142,7 +142,7 @@ const deletePin = () => {
         displayDeleteModal.value = false;
         pinToDelete.value = null;
         deleteContainer(containerId).then(() => {
-            fetchContainers(); // Refresh the container list and markers
+            fetchContainers();
         });
     }
 };
