@@ -61,7 +61,7 @@ export default {
     methods: {
         async login() {
             try {
-                const response = await axios.post('https://they-cables-vc-organizations.trycloudflare.com/api/users/login', {
+                const response = await axios.post('http://localhost:5000/api/users/login', {
                     mail: this.mail,
                     password: this.password
                 });

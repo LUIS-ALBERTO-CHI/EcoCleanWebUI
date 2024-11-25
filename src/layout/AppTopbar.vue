@@ -53,7 +53,7 @@ const showNotification = (alert) => {
 };
 
 const fetchAlerts = async () => {
-    const response = await fetch('https://they-cables-vc-organizations.trycloudflare.com/api/alerts');
+    const response = await fetch('http://localhost:5000/api/alerts');
     const data = await response.json();
     data.forEach(alert => {
         const existingAlert = alerts.value.find(a => a._id === alert._id);

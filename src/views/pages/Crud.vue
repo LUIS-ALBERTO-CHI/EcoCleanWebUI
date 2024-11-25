@@ -12,7 +12,7 @@ const users = ref([]);
 
 const fetchUsers = async () => {
     try {
-        const response = await fetch('https://they-cables-vc-organizations.trycloudflare.com/api/users');
+        const response = await fetch('http://localhost:5000/api/users');
         const data = await response.json();
         users.value = data;
     } catch (error) {

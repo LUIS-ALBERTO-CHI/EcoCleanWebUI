@@ -74,7 +74,7 @@ export default {
     methods: {
         async createUser() {
             try {
-                const response = await axios.post('https://they-cables-vc-organizations.trycloudflare.com/api/users/register', {
+                const response = await axios.post('http://localhost:5000/api/users/register', {
                     firstname: this.firstname,
                     lastname: this.lastname,
                     mail: this.mail,

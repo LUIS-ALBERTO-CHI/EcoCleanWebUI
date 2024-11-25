@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref, onUnmounted } from 'vue';
+import { onMounted, ref, onUnmounted, watch } from 'vue';
 import medio from '@/assets/medio.png';
 import critico from '@/assets/critico.png';
 import estable from '@/assets/estable.png';
@@ -16,6 +16,21 @@ const formData = ref({
     sensorId: null
 });
 
+const containers = ref([]);
+
+const displayDeleteModal = ref(false);
+const pinToDelete = ref(null);
+
+const selectedStatus = ref(null);
+const options = ref(['list', 'grid']);
+
+const statusOptions = [
+    { label: 'Todos', value: null },
+    { label: 'Crítico', value: 'critico' },
+    { label: 'Medio', value: 'medio' },
+    { label: 'Estable', value: 'estable' }
+];
+
 const startPolling = () => {
     pollingInterval = setInterval(fetchAlerts, 3000);
 };
@@ -24,30 +39,73 @@ const stopPolling = () => {
     clearInterval(pollingInterval);
 };
 
+const saveContainer = async (latitude, longitude, alertId) => {
+    try {
+        const response = await fetch('http://localhost:5000/api/containers', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                lat: latitude,
+                lon: longitude,
+                alertId: alertId
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Error al guardar el contenedor');
+        }
+
+        const data = await response.json();
+        console.log('Contenedor guardado exitosamente:', data);
+    } catch (error) {
+        console.error('Error al guardar el contenedor:', error);
+    }
+};
+
+const loadGoogleMaps = () => {
+    return new Promise((resolve, reject) => {
+        if (window.google && window.google.maps) {
+            resolve();
+        } else {
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=googleMapsCallback`;
+            script.async = true;
+            script.defer = true;
+            window.googleMapsCallback = () => {
+                resolve();
+            };
+            script.onerror = () => {
+                reject(new Error('Error loading Google Maps API'));
+            };
+            document.head.appendChild(script);
+        }
+    });
+};
 
 window.initMap = (latitude, longitude) => {
-
     if (latitude == null || longitude == null) {
         console.warn('Las coordenadas iniciales son inválidas. El mapa se centrará en una ubicación predeterminada.');
         latitude = 20.938904976395065;
         longitude = -89.61574872523957;
     }
 
-    const map = new Microsoft.Maps.Map(document.getElementById('map'), {
-        center: new Microsoft.Maps.Location(latitude, longitude),
+    const map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat: latitude, lng: longitude },
         zoom: 17
     });
 
     const center = map.getCenter();
-    const pin = new Microsoft.Maps.Pushpin(center, {
-        title: 'Estás aquí!'
+    const pin = new google.maps.Marker({
+        position: center,
+        map: map
     });
-    map.entities.push(pin);
 
-    Microsoft.Maps.Events.addHandler(map, 'click', (e) => {
-        const clickedLocation = e.location;
-        formData.value.latitude = clickedLocation.latitude;
-        formData.value.longitude = clickedLocation.longitude;
+    map.addListener('click', (e) => {
+        const clickedLocation = e.latLng;
+        formData.value.latitude = clickedLocation.lat();
+        formData.value.longitude = clickedLocation.lng();
 
         displayModal.value = true;
     });
@@ -55,9 +113,43 @@ window.initMap = (latitude, longitude) => {
     window.map = map;
 };
 
+const confirmDeletePin = (pin, containerId) => {
+    pinToDelete.value = { pin, containerId };
+    displayDeleteModal.value = true;
+};
+
+const deleteContainer = async (containerId) => {
+    try {
+        const response = await fetch(`http://localhost:5000/api/containers/${containerId}`, {
+            method: 'DELETE',
+        });
+
+        if (!response.ok) {
+            throw new Error('Error al eliminar el contenedor');
+        }
+
+        console.log('Contenedor eliminado exitosamente');
+        fetchContainers(); // Refresh the container list and markers
+    } catch (error) {
+        console.error('Error al eliminar el contenedor:', error);
+    }
+};
+
+const deletePin = () => {
+    if (pinToDelete.value) {
+        const { pin, containerId } = pinToDelete.value;
+        pin.setMap(null);
+        displayDeleteModal.value = false;
+        pinToDelete.value = null;
+        deleteContainer(containerId).then(() => {
+            fetchContainers(); // Refresh the container list and markers
+        });
+    }
+};
+
 const fetchAlerts = async () => {
     try {
-        const response = await fetch('https://they-cables-vc-organizations.trycloudflare.com/api/alerts');
+        const response = await fetch('http://localhost:5000/api/alerts');
         const data = await response.json();
         alerts.value = data;
     } catch (error) {
@@ -65,7 +157,77 @@ const fetchAlerts = async () => {
     }
 };
 
-const handleSubmit = () => {
+let markers = ref([]);
+
+const fetchContainers = async () => {
+    try {
+        let url = 'http://localhost:5000/api/containers';
+        if (selectedStatus.value) {
+            url += `?status=${selectedStatus.value}`;
+        }
+        const response = await fetch(url);
+        const data = await response.json();
+
+        containers.value = data;
+
+        markers.value.forEach((marker) => {
+            marker.setMap(null);
+        });
+        markers.value = []; 
+
+        data.forEach((container) => {
+            if (container.lat != null && container.lon != null) {
+                const status = container.alertDetails.status.toLowerCase();
+
+                if (!selectedStatus.value || status === selectedStatus.value) {
+                    const location = { lat: container.lat, lng: container.lon };
+                    let iconPath;
+
+                    switch (status) {
+                        case 'critico':
+                            iconPath = critico;
+                            break;
+                        case 'medio':
+                            iconPath = medio;
+                            break;
+                        case 'estable':
+                        default:
+                            iconPath = estable;
+                            break;
+                    }
+
+                    const pin = new google.maps.Marker({
+                        position: location,
+                        map: window.map,
+                        icon: {
+                            url: iconPath,
+                            scaledSize: new google.maps.Size(32, 32),
+                            labelOrigin: new google.maps.Point(16, 40),
+                        },
+                        label: {
+                            text: `Estado: ${status}`,
+                            fontSize: '14px',
+                            fontWeight: 'bold',
+                        },
+                        title: 'Click para eliminar este contenedor'
+                    });
+
+                    pin.addListener('click', () => confirmDeletePin(pin, container._id));
+                    markers.value.push(pin);
+                }
+            } else {
+                console.warn(`Invalid coordinates for container with ID: ${container._id}`);
+            }
+        });
+
+        console.log('Contenedores cargados exitosamente:', data);
+    } catch (error) {
+        console.error('Error al obtener los contenedores:', error);
+    }
+};
+
+
+const handleSubmit = async () => {
     if (selectedAlert.value && formData.value.latitude && formData.value.longitude) {
         const alert = alerts.value.find((a) => a._id === selectedAlert.value);
 
@@ -91,16 +253,30 @@ const handleSubmit = () => {
                 break;
         }
 
-        const location = new Microsoft.Maps.Location(formData.value.latitude, formData.value.longitude);
-        const trashPin = new Microsoft.Maps.Pushpin(location, {
-            icon: iconPath,
-            title: `Status: ${alert.status}`
+        const location = { lat: formData.value.latitude, lng: formData.value.longitude };
+        const trashPin = new google.maps.Marker({
+            position: location,
+            map: window.map,
+            icon: {
+                url: iconPath,
+                scaledSize: new google.maps.Size(32, 32),
+                labelOrigin: new google.maps.Point(16, 40)
+            },
+            label: {
+                text: `Estado: ${alert.status}`,
+                fontSize: '14px',
+                fontWeight: 'bold'
+            }
         });
-        window.map.entities.push(trashPin);
+
+        trashPin.addListener('click', () => confirmDeletePin(trashPin));
 
         console.log('Formulario enviado con los datos:', formData.value);
 
+        await saveContainer(formData.value.latitude, formData.value.longitude, selectedAlert.value);
+
         displayModal.value = false;
+        fetchContainers();
     } else {
         alert('Por favor, selecciona una alerta y una ubicación válida.');
     }
@@ -110,22 +286,23 @@ const searchPlace = () => {
     const query = searchQuery.value;
     if (!query) return;
 
-    fetch(`https://dev.virtualearth.net/REST/v1/Locations?q=${encodeURIComponent(query)}&key=AlW3HwGJSLoIKpnAQxpHyuZ-xbceCVrYL0WgboHaiiVWZrreMfk98W-solJgu0uo`)
+    fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&key=AIzaSyBvqc_86-mUD5tQpgcU_xsYDPWH12xoKGM`)
         .then(response => response.json())
         .then(data => {
-            const results = data.resourceSets[0]?.resources;
-            if (results && results.length > 0) {
-                const location = results[0].point.coordinates;
-                const latitude = location[0];
-                const longitude = location[1];
+            if (data.status === 'OK' && data.results.length > 0) {
+                const location = data.results[0].geometry.location;
+                const latitude = location.lat;
+                const longitude = location.lng;
 
-                const locationPin = new Microsoft.Maps.Location(latitude, longitude);
-                window.map.setView({ center: locationPin, zoom: 15 });
+                const locationPin = { lat: latitude, lng: longitude };
+                window.map.setCenter(locationPin);
+                window.map.setZoom(15);
 
-                const pin = new Microsoft.Maps.Pushpin(locationPin, {
+                const pin = new google.maps.Marker({
+                    position: locationPin,
+                    map: window.map,
                     title: query
                 });
-                window.map.entities.push(pin);
             } else {
                 alert("No se encontraron resultados para la búsqueda.");
             }
@@ -133,20 +310,40 @@ const searchPlace = () => {
         .catch(error => console.error("Error al buscar el lugar:", error));
 };
 
-onMounted(() => {
-    if (!window.Microsoft) {
-        console.error('Microsoft Maps no está definido. Revisa tu clave API y conexión.');
-        return;
-    }
+const zoomToContainer = (container) => {
+    const location = { lat: container.lat, lng: container.lon };
+    window.map.setCenter(location);
+    window.map.setZoom(17);
+};
 
-    window.initMap(20.938904976395065, -89.61574872523957);
-    fetchAlerts();
-    startPolling();
+const getIconPath = (status) => {
+    switch (status.toLowerCase()) {
+        case 'critico':
+            return critico;
+        case 'medio':
+            return medio;
+        case 'estable':
+        default:
+            return estable;
+    }
+};
+
+onMounted(async () => {
+    try {
+        await loadGoogleMaps();
+        window.initMap(20.938904976395065, -89.61574872523957);
+        fetchAlerts();
+        fetchContainers();
+        startPolling();
+    } catch (error) {
+        console.error('Error loading Google Maps API:', error);
+    }
 });
 
 onUnmounted(() => {
     stopPolling();
 });
+
 </script>
 
 <template>
@@ -157,16 +354,41 @@ onUnmounted(() => {
                     <Button @click="searchPlace" class="md:w-auto">Buscar</Button>
                     <InputText v-model="searchQuery" id="searchBox" placeholder="Ingrese una ubicación" />
                 </InputGroup>
+                <Dropdown v-model="selectedStatus" :options="statusOptions" optionLabel="label" optionValue="value"
+                    placeholder="Filtrar por estado" @change="fetchContainers" />
             </div>
             <div id="map" style="width: 100%; height: 400px;"></div>
+            <div class="container-list">
+                <h2>Contenedores activos</h2>
+                <ul>
+                    <li v-for="container in containers" :key="container._id">
+                        <div @click="zoomToContainer(container)" class="container-info">
+                            <img :src="getIconPath(container.alertDetails.status)" alt="status icon" />
+                            <span>{{ container.alertDetails.message }}</span>
+                        </div>
+                        <Button style="max-width: 100px;" @click="zoomToContainer(container)" class="go-to-map-button">Ir al mapa</Button>
+                    </li>
+                </ul>
+            </div>
         </div>
 
-        <Dialog v-model:visible="displayModal" header="Agregar contenedor" :modal="true" :closable="true" class="p-fluid w-1/2">
+        <Dialog v-model:visible="displayModal" header="Agregar contenedor" :modal="true" :closable="true"
+            class="p-fluid w-1/2">
             <div class="flex flex-col gap-4 w-full">
                 <label for="alert">Selecciona una alerta:</label>
-                <Dropdown v-model="selectedAlert" :options="alerts" optionLabel="message" optionValue="_id" placeholder="Seleccionar alerta" />
-                
+                <Dropdown v-model="selectedAlert" :options="alerts" optionLabel="message" optionValue="_id"
+                    placeholder="Seleccionar alerta" />
+
                 <Button label="Guardar" @click="handleSubmit" />
+            </div>
+        </Dialog>
+
+        <Dialog v-model:visible="displayDeleteModal" header="Eliminar pin" :modal="true" :closable="true"
+            class="p-fluid w-1/2">
+            <div class="flex flex-col gap-4 w-full">
+                <p>¿Estás seguro de que deseas eliminar este pin?</p>
+                <Button label="Eliminar" @click="deletePin" />
+                <Button label="Cancelar" @click="() => displayDeleteModal.value = false" />
             </div>
         </Dialog>
     </Fluid>
@@ -177,5 +399,48 @@ onUnmounted(() => {
         width: 100%;
         height: 400px;
         border: solid 1px #ccc;
+    }
+    .container-list {
+        background: #f9f9f9;
+        padding: 16px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .container-list h2 {
+        margin-bottom: 16px;
+        font-size: 1.5em;
+        color: #333;
+    }
+    .container-list ul {
+        list-style: none;
+        padding: 0;
+    }
+    .container-list li {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px;
+        border-bottom: 1px solid #ccc;
+        transition: background 0.3s;
+    }
+    .container-list li:hover {
+        background: #e0e0e0;
+    }
+    .container-list li .container-info {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+    }
+    .container-list li img {
+        width: 32px;
+        height: 32px;
+        margin-right: 8px;
+    }
+    .container-list li span {
+        font-size: 1.2em;
+        color: #555;
+    }
+    .go-to-map-button {
+        margin-left: auto;
     }
 </style>
