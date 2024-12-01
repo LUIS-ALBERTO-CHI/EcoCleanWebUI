@@ -56,15 +56,13 @@ const showNotification = (alert) => {
 const fetchAlerts = async () => {
     const response = await fetch('https://ecocleantype-ecoclean.up.railway.app/api/alerts');
     const data = await response.json();
-    const today = new Date().toISOString().split('T')[0];
-    const todayAlerts = data.filter(alert => alert.dateCreation.split('T')[0] === today);
-    todayAlerts.forEach(alert => {
+    data.forEach(alert => {
         const existingAlert = alerts.value.find(a => a._id === alert._id);
         if (existingAlert && existingAlert.status !== alert.status) {
             showNotification(alert);
         }
     });
-    alerts.value = todayAlerts.map(alert => ({
+    alerts.value = data.map(alert => ({
         ...alert,
         iconPath: getIconPath(alert.status)
     }));

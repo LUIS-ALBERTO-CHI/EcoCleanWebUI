@@ -35,7 +35,7 @@ const statusOptions = [
 ];
 
 const startPolling = () => {
-    pollingInterval = setInterval(fetchAlerts, 3000);
+    pollingInterval = setInterval(fetchAlerts, 2000);
 };
 
 const stopPolling = () => {
@@ -365,6 +365,44 @@ onUnmounted(() => {
 watch(selectedStatus, () => {
     initMap();
     fetchContainers();
+});
+
+watch(alerts, () => {
+    fetchContainers();
+});
+
+watch(containers, () => {
+    markers.value.forEach((marker) => {
+        marker.setMap(null);
+    });
+    markers.value = [];
+
+    containers.value.forEach((container) => {
+        if (container.lat != null && container.lon != null) {
+            const status = container.alertDetails.status.toLowerCase();
+            const location = { lat: container.lat, lng: container.lon };
+            let iconPath;
+
+            switch (status) {
+                case 'critico':
+                    iconPath = critico;
+                    break;
+                case 'medio':
+                    iconPath = medio;
+                    break;
+                case 'estable':
+                default:
+                    iconPath = estable;
+                    break;
+            }
+
+            const pin = createStyledMarker(location, iconPath);
+            pin.addListener('click', () => confirmDeletePin(pin, container._id));
+            markers.value.push(pin);
+        } else {
+            console.warn(`Invalid coordinates for container with ID: ${container._id}`);
+        }
+    });
 });
 
 </script>
