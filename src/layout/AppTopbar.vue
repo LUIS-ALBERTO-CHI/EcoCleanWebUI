@@ -14,6 +14,7 @@ const initials = ref('');
 const alertsCount = ref(0);
 let pollingInterval;
 const notification = ref(null);
+const avatarPopover = ref(null);
 
 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
@@ -53,19 +54,23 @@ const showNotification = (alert) => {
 };
 
 const fetchAlerts = async () => {
-    const response = await fetch('http://localhost:5000/api/alerts');
+    const response = await fetch('https://ecocleantype-ecoclean.up.railway.app/api/alerts');
     const data = await response.json();
-    data.forEach(alert => {
+    const today = new Date().toISOString().split('T')[0];
+    const todayAlerts = data.filter(alert => alert.dateCreation.split('T')[0] === today);
+    todayAlerts.forEach(alert => {
         const existingAlert = alerts.value.find(a => a._id === alert._id);
         if (existingAlert && existingAlert.status !== alert.status) {
             showNotification(alert);
         }
     });
-    alerts.value = data.map(alert => ({
+    alerts.value = todayAlerts.map(alert => ({
         ...alert,
         iconPath: getIconPath(alert.status)
     }));
     alertsCount.value = alerts.value.length;
+
+    console.log('Alerts:', alerts.value);
 };
 
 const startPolling = () => {
@@ -85,6 +90,16 @@ const requestNotificationPermission = async () => {
     } catch (error) {
         console.error('Error al solicitar permiso de notificación:', error);
     }
+};
+
+const logout = () => {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('loggedInUser');
+    window.location.href = '/auth/login';
+};
+
+const toggleAvatarPopover = (event) => {
+    avatarPopover.value.toggle(event);
 };
 
 onMounted(async () => {
@@ -164,9 +179,14 @@ onUnmounted(() => {
                 <i class="pi pi-ellipsis-v"></i>
             </button>
 
-            <div cass="layout-topbar-menu hidden lg:block">
+            <div class="layout-topbar-menu hidden lg:block">
                 <div class="layout-topbar-menu-content">
-                   <Avatar :label="initials" class="mr-2" style="background-color: #ece9fc; color: #2a1261; width: 35px;; height: 35px" shape="circle" />
+                    <Popover ref="avatarPopover">
+                        <div class="flex flex-col gap-4">
+                            <Button @click="logout" text label="Cerrar sesión" icon="pi pi-sign-out" icon-pos="right"/>
+                        </div>
+                    </Popover>
+                    <Avatar :label="initials" class="mr-2" style="background-color: #ece9fc; color: #2a1261; width: 35px; height: 35px" shape="circle" @click="toggleAvatarPopover" />
                 </div>
             </div>
         </div>

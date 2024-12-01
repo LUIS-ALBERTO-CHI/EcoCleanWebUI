@@ -1,8 +1,11 @@
 <script setup>
 import { onMounted, ref, onUnmounted, watch } from 'vue';
+import { LottieAnimation } from "lottie-web-vue"
 import medio from '@/assets/medio.png';
 import critico from '@/assets/critico.png';
 import estable from '@/assets/estable.png';
+import TrashDeleted from "@/assets/demo/trash-deleted.json";
+import TrashAdded from "@/assets/demo/trash-added.json";
 
 const searchQuery = ref('');
 const displayModal = ref(false);
@@ -16,13 +19,13 @@ const formData = ref({
     sensorId: null
 });
 
+
 const containers = ref([]);
 
 const displayDeleteModal = ref(false);
 const pinToDelete = ref(null);
 
 const selectedStatus = ref(null);
-const options = ref(['list', 'grid']);
 
 const statusOptions = [
     { label: 'Todos', value: null },
@@ -41,7 +44,7 @@ const stopPolling = () => {
 
 const saveContainer = async (latitude, longitude, alertId) => {
     try {
-        const response = await fetch('http://localhost:5000/api/containers', {
+        const response = await fetch('https://ecocleantype-ecoclean.up.railway.app/api/containers', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -70,10 +73,10 @@ const loadGoogleMaps = () => {
             resolve();
         } else {
             const script = document.createElement('script');
-            script.src = `https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=googleMapsCallback`;
+            script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBvqc_86-mUD5tQpgcU_xsYDPWH12xoKGM&callback=initMap`;
             script.async = true;
             script.defer = true;
-            window.googleMapsCallback = () => {
+            window.initMap = () => {
                 resolve();
             };
             script.onerror = () => {
@@ -118,9 +121,12 @@ const confirmDeletePin = (pin, containerId) => {
     displayDeleteModal.value = true;
 };
 
+const showDeleteAnimation = ref(false);
+const showAddAnimation = ref(false);
+
 const deleteContainer = async (containerId) => {
     try {
-        const response = await fetch(`http://localhost:5000/api/containers/${containerId}`, {
+        const response = await fetch(`https://ecocleantype-ecoclean.up.railway.app/api/containers/${containerId}`, {
             method: 'DELETE',
         });
 
@@ -129,7 +135,12 @@ const deleteContainer = async (containerId) => {
         }
 
         console.log('Contenedor eliminado exitosamente');
-        fetchContainers();
+        showDeleteAnimation.value = true;
+        setTimeout(() => {
+            showDeleteAnimation.value = false;
+            fetchContainers();
+            initMap();            
+        }, 2000);
     } catch (error) {
         console.error('Error al eliminar el contenedor:', error);
     }
@@ -143,13 +154,15 @@ const deletePin = () => {
         pinToDelete.value = null;
         deleteContainer(containerId).then(() => {
             fetchContainers();
+            selectedAlert.value = null;
         });
     }
 };
 
+
 const fetchAlerts = async () => {
     try {
-        const response = await fetch('http://localhost:5000/api/alerts');
+        const response = await fetch('https://ecocleantype-ecoclean.up.railway.app/api/alerts');
         const data = await response.json();
         alerts.value = data;
     } catch (error) {
@@ -159,9 +172,43 @@ const fetchAlerts = async () => {
 
 let markers = ref([]);
 
+const createStyledMarker = (location, iconPath, title) => {
+    const marker = new google.maps.Marker({
+        position: location,
+        map: window.map,
+        icon: {
+            url: iconPath,
+            scaledSize: new google.maps.Size(32, 32),
+            labelOrigin: new google.maps.Point(16, 40),
+        },
+        label: {
+            text: title,
+            fontSize: '14px',
+            fontWeight: 'bold',
+            color: '#000',
+            fontFamily: 'San Francisco, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+        },
+        title: title,
+    });
+
+    const infoWindow = new google.maps.InfoWindow({
+        content: "Para eliminar haga click sobre el contenedor",
+    });
+
+    marker.addListener('mouseover', () => {
+        infoWindow.open(window.map, marker);
+    });
+
+    marker.addListener('mouseout', () => {
+        infoWindow.close();
+    });
+
+    return marker;
+};
+
 const fetchContainers = async () => {
     try {
-        let url = 'http://localhost:5000/api/containers';
+        let url = 'https://ecocleantype-ecoclean.up.railway.app/api/containers';
         if (selectedStatus.value) {
             url += `?status=${selectedStatus.value}`;
         }
@@ -196,21 +243,7 @@ const fetchContainers = async () => {
                             break;
                     }
 
-                    const pin = new google.maps.Marker({
-                        position: location,
-                        map: window.map,
-                        icon: {
-                            url: iconPath,
-                            scaledSize: new google.maps.Size(32, 32),
-                            labelOrigin: new google.maps.Point(16, 40),
-                        },
-                        label: {
-                            text: `Estado: ${status}`,
-                            fontSize: '14px',
-                            fontWeight: 'bold',
-                        },
-                        title: 'Click para eliminar este contenedor'
-                    });
+                    const pin = createStyledMarker(location, iconPath);
 
                     pin.addListener('click', () => confirmDeletePin(pin, container._id));
                     markers.value.push(pin);
@@ -231,11 +264,6 @@ const handleSubmit = async () => {
     if (selectedAlert.value && formData.value.latitude && formData.value.longitude) {
         const alert = alerts.value.find((a) => a._id === selectedAlert.value);
 
-        if (addedSensors.value.has(alert.sensorId)) {
-            alert("Este sensor ya tiene un pin en el mapa.");
-            return;
-        }
-
         formData.value.sensorId = alert.sensorId;
         addedSensors.value.add(alert.sensorId);
 
@@ -254,29 +282,19 @@ const handleSubmit = async () => {
         }
 
         const location = { lat: formData.value.latitude, lng: formData.value.longitude };
-        const trashPin = new google.maps.Marker({
-            position: location,
-            map: window.map,
-            icon: {
-                url: iconPath,
-                scaledSize: new google.maps.Size(32, 32),
-                labelOrigin: new google.maps.Point(16, 40)
-            },
-            label: {
-                text: `Estado: ${alert.status}`,
-                fontSize: '14px',
-                fontWeight: 'bold'
-            }
-        });
+        const trashPin = createStyledMarker(location, iconPath);
 
         trashPin.addListener('click', () => confirmDeletePin(trashPin));
 
         console.log('Formulario enviado con los datos:', formData.value);
 
         await saveContainer(formData.value.latitude, formData.value.longitude, selectedAlert.value);
-
+        showAddAnimation.value = true;
+        setTimeout(() => {
+            showAddAnimation.value = false;
+            fetchContainers();
+        }, 2000);
         displayModal.value = false;
-        fetchContainers();
     } else {
         alert('Por favor, selecciona una alerta y una ubicación válida.');
     }
@@ -344,6 +362,11 @@ onUnmounted(() => {
     stopPolling();
 });
 
+watch(selectedStatus, () => {
+    initMap();
+    fetchContainers();
+});
+
 </script>
 
 <template>
@@ -372,25 +395,38 @@ onUnmounted(() => {
             </div>
         </div>
 
-        <Dialog v-model:visible="displayModal" header="Agregar contenedor" :modal="true" :closable="true"
-            class="p-fluid w-1/2">
+        <Dialog v-model:visible="displayModal" header="Agregar contenedor" :modal="true" :closable="false"
+            class="p-fluid" style="width: 350px;">
             <div class="flex flex-col gap-4 w-full">
-                <label for="alert">Selecciona una alerta:</label>
                 <Dropdown v-model="selectedAlert" :options="alerts" optionLabel="message" optionValue="_id"
-                    placeholder="Seleccionar alerta" />
-
+                    placeholder="Seleccionar..." />
                 <Button label="Guardar" @click="handleSubmit" />
+                <Button label="Cancelar" @click="() => displayModal = false" style="background-color: #02276E; border: #02276E;"/>
             </div>
         </Dialog>
 
-        <Dialog v-model:visible="displayDeleteModal" header="Eliminar pin" :modal="true" :closable="true"
-            class="p-fluid w-1/2">
+        <Dialog v-model:visible="displayDeleteModal" header="Eliminar Contenedor" :modal="true" :closable="false"
+            class="p-fluid" style="width: 350px;">
             <div class="flex flex-col gap-4 w-full">
-                <p>¿Estás seguro de que deseas eliminar este pin?</p>
+                <p>¿Estás seguro de que deseas eliminar este contenedor?</p>
                 <Button label="Eliminar" @click="deletePin" />
-                <Button label="Cancelar" @click="() => displayDeleteModal.value = false" />
+                <Button label="Cancelar" @click="() => displayDeleteModal = false" style="background-color: #02276E; border: #02276E;" />
             </div>
         </Dialog>
+        <div v-if="showDeleteAnimation" class="lottie-container">
+            <LottieAnimation 
+                :animation-data="TrashDeleted"
+                :loop="false"
+                :speed="1"
+            />
+        </div>
+        <div v-if="showAddAnimation" class="lottie-container">
+            <LottieAnimation 
+                :animation-data="TrashAdded"
+                :loop="false"
+                :speed="1"
+            />
+        </div>
     </Fluid>
 </template>
 
@@ -399,17 +435,20 @@ onUnmounted(() => {
         width: 100%;
         height: 400px;
         border: solid 1px #ccc;
+        border-radius: 12px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     }
     .container-list {
-        background: #f9f9f9;
+        background: #fff;
         padding: 16px;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        border-radius: 12px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     }
     .container-list h2 {
         margin-bottom: 16px;
         font-size: 1.5em;
         color: #333;
+        font-family: 'San Francisco', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
     .container-list ul {
         list-style: none;
@@ -419,12 +458,13 @@ onUnmounted(() => {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 8px;
-        border-bottom: 1px solid #ccc;
+        padding: 12px;
+        border-bottom: 1px solid #eee;
         transition: background 0.3s;
+        border-radius: 8px;
     }
     .container-list li:hover {
-        background: #e0e0e0;
+        background: #f5f5f5;
     }
     .container-list li .container-info {
         display: flex;
@@ -434,13 +474,25 @@ onUnmounted(() => {
     .container-list li img {
         width: 32px;
         height: 32px;
-        margin-right: 8px;
+        margin-right: 12px;
     }
     .container-list li span {
         font-size: 1.2em;
         color: #555;
+        font-family: 'San Francisco', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
     .go-to-map-button {
-        margin-left: auto;
+        border: #02276E;
+        background-color: #02276E;
+        font-family: 'San Francisco', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    .lottie-container {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 200px;
+        height: 200px;
+        z-index: 1000;
     }
 </style>

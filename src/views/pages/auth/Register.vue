@@ -19,7 +19,8 @@
                         <label for="email1"
                             class="block text-surface-900 dark:text-surface-0 text-xl font-medium mb-2">Correo</label>
                         <InputText id="email1" type="text" placeholder="Direccion de correo"
-                            class="w-full md:w-[30rem] mb-8" v-model="mail" />
+                            class="w-full md:w-[30rem] mb-2" v-model="mail" />
+                        <Message v-if="emailError" severity="error" class="mb-8"> Correo no valido </Message>
 
                         <label for="firstname"
                             class="block text-surface-900 dark:text-surface-0 text-xl font-medium mb-2">Nombre
@@ -34,8 +35,9 @@
 
                         <label for="password1"
                             class="block text-surface-900 dark:text-surface-0 font-medium text-xl mb-2">Contraseña</label>
-                        <Password id="password1" v-model="password" placeholder="Min. 8 caracteres" :toggleMask="true"
-                            class="mb-4" fluid :feedback="false"></Password>
+                        <Password id="password1" v-model="password" placeholder="Min. 8 caracteres" :toggleMask="true" :invalid="password == ''"
+                            class="mb-2" fluid :feedback="false"></Password>
+                        <Message v-if="passwordError" severity="error"class="mb-4" >La contraseña debe tener al menos 8 caracteres</Message>
 
                         <Button label="Registrarse" class="w-full" @click="createUser"></Button>
                     </div>
@@ -53,13 +55,15 @@ import Button from 'primevue/button';
 import Password from 'primevue/password';
 import { useRouter } from 'vue-router';
 import Toast from 'primevue/toast';
+import Message from 'primevue/message';
 
 export default {
     components: {
         InputText,
         Button,
         Password,
-        Toast
+        Toast,
+        Message
     },
 
     data() {
@@ -68,13 +72,22 @@ export default {
             lastname: '',
             mail: '',
             password: '',
+            emailError: false,
+            passwordError: false
         }
     },
 
     methods: {
         async createUser() {
+            this.emailError = !this.validateEmail(this.mail);
+            this.passwordError = this.password.length < 8;
+
+            if (this.emailError || this.passwordError) {
+                return;
+            }
+
             try {
-                const response = await axios.post('http://localhost:5000/api/users/register', {
+                const response = await axios.post('https://ecocleantype-ecoclean.up.railway.app/api/users', {
                     firstname: this.firstname,
                     lastname: this.lastname,
                     mail: this.mail,
@@ -86,6 +99,10 @@ export default {
                 this.$toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to create user', life: 3000 });
                 console.error(error);
             }
+        },
+        validateEmail(email) {
+            const re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@(([^<>()[\]\.,;:\s@"]+\.)+[^<>()[\]\.,;:\s@"]{2,})$/i;
+            return re.test(email);
         }
     }
 };

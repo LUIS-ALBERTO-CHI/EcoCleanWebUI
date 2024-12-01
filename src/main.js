@@ -6,6 +6,7 @@ import Aura from '@primevue/themes/aura';
 import PrimeVue from 'primevue/config';
 import ConfirmationService from 'primevue/confirmationservice';
 import ToastService from 'primevue/toastservice';
+import * as LottieAnimation from 'lottie-web-vue'
 
 import '@/assets/styles.scss';
 import '@/assets/tailwind.css';
@@ -23,5 +24,6 @@ app.use(PrimeVue, {
 });
 app.use(ToastService);
 app.use(ConfirmationService);
+app.use(LottieAnimation);
 
 app.mount('#app');
